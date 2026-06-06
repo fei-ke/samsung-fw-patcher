@@ -59,11 +59,11 @@ rm -f tmp/BL/vbmeta.img.lz4
 echo "[*] Patching vbmeta.img..."
 vbmeta-disable-verification tmp/BL/vbmeta.img
 
-# BL 文件打包为 tar文件，命名为 patched_BL.tar，放到上层目录
+# BL 文件打包为 tar文件，命名为 patched_BL.tar，放到工作目录
 echo "[*] Packaging patched_BL.tar..."
 (
     cd tmp/BL
-    tar -cf ../patched_BL.tar *
+    tar -cf "$WORK_DIR/patched_BL.tar" *
 )
 
 # 查找 AP_ 开头 tar 或者 tar.md5 结尾的文件，没有的话报错
