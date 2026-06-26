@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lz4 \
     tar \
     unzip \
+    binutils \
     && rm -rf /var/lib/apt/lists/*
 
 # 将 bin 目录内的可执行文件和脚本放到容器的可执行路径中
