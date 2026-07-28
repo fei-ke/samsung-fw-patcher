@@ -86,7 +86,7 @@ lz4 -d tmp/boot.img.lz4 tmp/boot.img
 # 清理临时目录下的 lz4 文件
 rm -f tmp/init_boot.img.lz4 tmp/boot.img.lz4
 
-# 使用 magiskboot unpack boot.img 解压 boot 文件以提取 kernel
+# 使用 magiskboot unpack boot.img 解压 boot 文件以提取 stock kernel
 echo "[*] Unpacking boot.img to extract stock kernel..."
 (
     cd tmp
@@ -105,14 +105,24 @@ echo "[+] Extracted KMI: $KMI"
 # 删除原 kernel 文件，准备替换为新 kernel
 rm -f tmp/kernel
 
-# 将工作目录中的所有 .ko 文件拷贝到 tmp 目录，以便 ksud patch 时能找到
-cp "$WORK_DIR"/*.ko tmp/ 2>/dev/null || true
+# 查找匹配 KMI 版本的 .ko 文件
+echo "[*] Searching for .ko file matching KMI version ($KMI)..."
+KO_FILE=$(find . -maxdepth 1 -name "*${KMI}*.ko" -print -quit)
+if [ -z "$KO_FILE" ]; then
+    echo "[-] Error: No .ko file matching KMI version ($KMI) found in working directory." >&2
+    exit 1
+fi
+KO_FILE="$(basename "$KO_FILE")"
+echo "[+] Found matching ko file: $KO_FILE"
 
-# 使用 ksud patch： ksud boot-patch -b init_boot.img --kmi "$KMI" --out-name init_boot-patched.img
+# 将匹配的 .ko 文件拷贝到 tmp 目录
+cp "$KO_FILE" tmp/
+
+# 使用 ksud patch： ksud boot-patch -b init_boot.img --module "$KO_FILE" --out-name init_boot-patched.img
 echo "[*] Patching init_boot.img with ksud..."
 (
     cd tmp
-    ksud boot-patch -b init_boot.img --kmi "$KMI" --out-name init_boot-patched.img
+    ksud boot-patch -b init_boot.img --module "$KO_FILE" --out-name init_boot-patched.img
 )
 
 # 在工作目录查找 s25_gki_kernel 开头的 .zip 文件
