@@ -18,7 +18,7 @@
    - 从 [KernelSU Releases](https://github.com/tiann/KernelSU/releases/latest) 下载与内核版本对应的 `.ko` 文件（例如 `android15-6.6_kernelsu.ko`），并放入工作目录。
 
 > [!NOTE]
-> 运行环境（或 Docker 镜像内）根目录必须存在 `/oneui7/abl.elf.lz4` 文件，用于替换 BL 分区中的 `abl`。
+> 脚本优先使用工作目录中的 `abl.elf.lz4` 替换 BL 包里的同名文件。工作目录没有该文件时，使用运行环境中的 `/oneui7/abl.elf.lz4`。两处都缺失时，脚本会报错退出。
 
 ---
 

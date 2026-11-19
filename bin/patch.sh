@@ -37,14 +37,18 @@ echo "[*] Extracting BL file to tmp/BL..."
 mkdir -p tmp/BL
 tar -xf "$BL_FILE" -C tmp/BL
 
-# 删除这个目录内的 abl.elf.lz4 文件，将 /oneui7/abl.elf.lz4 文件拷贝到这个目录
-echo "[*] Replacing abl.elf.lz4..."
-rm -f tmp/BL/abl.elf.lz4
-if [ ! -f "/oneui7/abl.elf.lz4" ]; then
-    echo "[-] Error: /oneui7/abl.elf.lz4 does not exist." >&2
+# 优先使用工作目录中的 ABL，缺失时使用 One UI 7 的默认文件
+ABL_FILE="$WORK_DIR/abl.elf.lz4"
+if [ ! -f "$ABL_FILE" ]; then
+    ABL_FILE="/oneui7/abl.elf.lz4"
+fi
+if [ ! -f "$ABL_FILE" ]; then
+    echo "[-] Error: abl.elf.lz4 not found in $WORK_DIR or /oneui7." >&2
     exit 1
 fi
-cp /oneui7/abl.elf.lz4 tmp/BL/
+echo "[*] Replacing abl.elf.lz4 with $ABL_FILE..."
+rm -f tmp/BL/abl.elf.lz4
+cp "$ABL_FILE" tmp/BL/
 
 # 使用 lz4 命令解压 vbmeta.img.lz4，然后删除 vbmeta.img.lz4
 echo "[*] Decompressing vbmeta.img.lz4..."
