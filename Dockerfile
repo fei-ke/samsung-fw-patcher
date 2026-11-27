@@ -1,8 +1,9 @@
 FROM debian:bookworm-slim
 
-# 安装依赖：lz4, python3, ca-certificates
+# 安装依赖：lz4, tar, python3, ca-certificates
 RUN apt-get update && apt-get install -y --no-install-recommends \
     lz4 \
+    tar \
     python3 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
