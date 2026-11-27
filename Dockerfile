@@ -1,11 +1,13 @@
 FROM debian:bookworm-slim
 
-# 安装依赖：lz4, tar, binutils, python3
+# 安装依赖：lz4, tar, binutils, python3, curl, ca-certificates
 RUN apt-get update && apt-get install -y --no-install-recommends \
     lz4 \
     tar \
     binutils \
     python3 \
+    curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # 下载 samsung-lkm-boot-patcher 脚本并放入可执行路径

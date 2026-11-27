@@ -107,18 +107,66 @@ if [ -z "$KMI" ]; then
 fi
 echo "[+] Extracted KMI: $KMI"
 
-# 查找匹配 KMI 版本的 .ko 文件
-echo "[*] Searching for .ko file matching KMI version ($KMI)..."
-KO_FILE=$(find . -maxdepth 1 -name "*${KMI}*.ko" -print -quit)
-if [ -z "$KO_FILE" ]; then
-    echo "[-] Error: No .ko file matching KMI version ($KMI) found in working directory." >&2
-    exit 1
-fi
-KO_FILE="$(basename "$KO_FILE")"
-echo "[+] Found matching ko file: $KO_FILE"
+# 优先查找工作目录中匹配 KMI 版本的 .ko 文件（忽略 x86），不存在时自动从 KernelSU 官方最新 Release 下载
+echo "[*] Searching for local .ko file matching KMI version ($KMI)..."
+KO_FILE=$(find . -maxdepth 1 -name "*${KMI}*.ko" ! -name "*x86*" -print -quit)
+if [ -n "$KO_FILE" ]; then
+    KO_FILE="$(basename "$KO_FILE")"
+    echo "[+] Found local matching ko file: $KO_FILE"
+    cp "$KO_FILE" tmp/
+else
+    echo "[*] Local .ko file not found. Downloading latest KernelSU module for $KMI..."
+    LATEST_URL=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/tiann/KernelSU/releases/latest" 2>/dev/null || true)
+    LATEST_TAG="${LATEST_URL##*/}"
+    if [ -n "$LATEST_TAG" ] && [ "$LATEST_TAG" != "latest" ]; then
+        echo "[*] Latest KernelSU release: $LATEST_TAG"
+    fi
 
-# 将匹配的 .ko 文件拷贝到 tmp 目录
-cp "$KO_FILE" tmp/
+    KO_FILE=""
+    for CANDIDATE in "lkm-aarch64-${KMI}_kernelsu.ko" "${KMI}_kernelsu.ko"; do
+        DOWNLOAD_URL="https://github.com/tiann/KernelSU/releases/latest/download/${CANDIDATE}"
+        echo "[*] Trying $DOWNLOAD_URL..."
+        if curl -fsSL --retry 3 --retry-delay 2 "$DOWNLOAD_URL" -o "tmp/$CANDIDATE" && [ -s "tmp/$CANDIDATE" ]; then
+            KO_FILE="$CANDIDATE"
+            echo "[+] Downloaded $KO_FILE"
+            break
+        fi
+        rm -f "tmp/$CANDIDATE"
+    done
+
+    # 若直接命名未命中，回退到 GitHub Releases API 动态匹配 aarch64 的 .ko 资产
+    if [ -z "$KO_FILE" ]; then
+        echo "[*] Direct download name not matched; querying GitHub Releases API..."
+        ASSET_INFO=$(curl -fsSL --retry 3 --retry-delay 2 "https://api.github.com/repos/tiann/KernelSU/releases/latest" | python3 -c '
+import json, sys
+kmi = sys.argv[1]
+assets = json.load(sys.stdin).get("assets", [])
+ko_assets = [a for a in assets if a["name"].endswith(".ko") and kmi in a["name"]]
+preferred = [a for a in ko_assets if "aarch64" in a["name"] or "arm64" in a["name"]]
+fallback = [a for a in ko_assets if not any(arch in a["name"] for arch in ("x86_64", "riscv64", "x86"))]
+match = (preferred or fallback or [None])[0]
+if match:
+    print(match["name"])
+    print(match["browser_download_url"])
+' "$KMI" 2>/dev/null) || true
+        ASSET_NAME=$(printf '%s\n' "$ASSET_INFO" | sed -n '1p')
+        ASSET_URL=$(printf '%s\n' "$ASSET_INFO" | sed -n '2p')
+        if [ -n "$ASSET_NAME" ] && [ -n "$ASSET_URL" ]; then
+            echo "[*] Downloading $ASSET_NAME from $ASSET_URL..."
+            if curl -fsSL --retry 3 --retry-delay 2 "$ASSET_URL" -o "tmp/$ASSET_NAME" && [ -s "tmp/$ASSET_NAME" ]; then
+                KO_FILE="$ASSET_NAME"
+                echo "[+] Downloaded $KO_FILE"
+            else
+                rm -f "tmp/$ASSET_NAME"
+            fi
+        fi
+    fi
+
+    if [ -z "$KO_FILE" ]; then
+        echo "[-] Error: Failed to download KernelSU .ko file matching KMI version ($KMI) from https://github.com/tiann/KernelSU/releases/latest." >&2
+        exit 1
+    fi
+fi
 
 # 使用 ksud patch： ksud boot-patch -b init_boot.img --module "$KO_FILE" --out-name init_boot-patched.img
 echo "[*] Patching init_boot.img with ksud..."

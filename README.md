@@ -4,7 +4,7 @@
 
 ## 准备文件
 
-运行脚本前，请在工作目录中准备好以下固件文件和 KernelSU 模块文件：
+运行脚本前，请在工作目录中准备好以下官方固件文件：
 
 1. **BL 固件文件**:
    - 文件名格式：`BL_*.tar` 或 `BL_*.tar.md5`
@@ -12,11 +12,10 @@
    - 文件名格式：`AP_*.tar` 或 `AP_*.tar.md5`
 3. **CSC 固件文件**:
    - 文件名格式：`CSC_*.tar` 或 `CSC_*.tar.md5`
-4. **KernelSU 内核模块文件 (.ko)**:
-   - 从 [KernelSU Releases](https://github.com/tiann/KernelSU/releases/latest) 下载与内核版本对应的 `.ko` 文件（例如 `android15-6.6_kernelsu.ko`），并放入工作目录。
 
 > [!NOTE]
-> 脚本优先使用工作目录中的 `abl.elf.lz4` 替换 BL 包里的同名文件。工作目录没有该文件时，使用运行环境中的 `/oneui7/abl.elf.lz4`。两处都缺失时，脚本会报错退出。
+> - **KernelSU `.ko` 模块**：无需手动下载，脚本会自动从原厂内核提取 KMI 版本并从 [KernelSU Releases](https://github.com/tiann/KernelSU/releases/latest) 下载最新版本对应的 `aarch64` `.ko` 文件；若工作目录中已存在匹配该 KMI 版本的 `.ko` 文件，则会优先使用本地文件。
+> - **`abl.elf.lz4`**：脚本优先使用工作目录中的 `abl.elf.lz4` 替换 BL 包里的同名文件。工作目录没有该文件时，使用运行环境中的 `/oneui7/abl.elf.lz4`。两处都缺失时，脚本会报错退出。
 
 ---
 
