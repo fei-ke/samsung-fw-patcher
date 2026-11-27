@@ -92,22 +92,20 @@ rm -f tmp/init_boot.img.lz4 tmp/boot.img.lz4
 
 # 使用 magiskboot unpack boot.img 解压 boot 文件以提取 stock kernel
 echo "[*] Unpacking boot.img to extract stock kernel..."
+mkdir -p tmp/boot_unpack
 (
-    cd tmp
-    magiskboot unpack boot.img
+    cd tmp/boot_unpack
+    magiskboot unpack ../boot.img
 )
 
 # 从 stock kernel 中提取 KMI 版本
 echo "[*] Extracting KMI version from stock kernel..."
-KMI=$(strings tmp/kernel | grep 'Linux version' | head -n 1 | sed -E 's/.*Linux version ([0-9]+\.[0-9]+)(\.[0-9]+)?-([a-zA-Z0-9]+).*/\3-\1/')
+KMI=$(strings tmp/boot_unpack/kernel | grep 'Linux version' | head -n 1 | sed -E 's/.*Linux version ([0-9]+\.[0-9]+)(\.[0-9]+)?-([a-zA-Z0-9]+).*/\3-\1/')
 if [ -z "$KMI" ]; then
     echo "[-] Error: Failed to extract KMI version from stock kernel." >&2
     exit 1
 fi
 echo "[+] Extracted KMI: $KMI"
-
-# 删除原 kernel 文件，准备替换为新 kernel
-rm -f tmp/kernel
 
 # 查找匹配 KMI 版本的 .ko 文件
 echo "[*] Searching for .ko file matching KMI version ($KMI)..."
@@ -129,36 +127,34 @@ echo "[*] Patching init_boot.img with ksud..."
     ksud boot-patch -b init_boot.img --module "$KO_FILE" --out-name init_boot-patched.img
 )
 
-# 在工作目录查找 s25_gki_kernel 开头的 .zip 文件
-echo "[*] Searching for kernel zip file..."
-KERNEL_ZIP=$(find . -maxdepth 1 -name "s25_gki_kernel*.zip" -print -quit)
-if [ -z "$KERNEL_ZIP" ]; then
-    echo "[-] Error: Kernel zip (s25_gki_kernel*.zip) not found in working directory." >&2
+# 使用 samsung-lkm-boot-patcher 修补原厂 boot.img（关闭 UH / RKP / KDP）
+# 优先直接修补原厂 boot.img；若遇到压缩内核，则回退到修补解包后的 kernel 并重新打包
+echo "[*] Patching stock boot.img with patch_samsung_boot_rkp_kdp.py..."
+PATCH_ERR="$(mktemp)"
+if patch_samsung_boot_rkp_kdp.py tmp/boot.img tmp/boot-patched.img 2>"$PATCH_ERR"; then
+    cat "$PATCH_ERR" >&2
+    rm -f "$PATCH_ERR"
+elif grep -q "Kernel payload is not an uncompressed ARM64 Linux Image" "$PATCH_ERR"; then
+    cat "$PATCH_ERR" >&2
+    rm -f "$PATCH_ERR"
+    echo "[*] Compressed kernel detected; falling back to patching unpacked kernel and repacking boot.img..."
+    (
+        cd tmp/boot_unpack
+        patch_samsung_boot_rkp_kdp.py kernel kernel-patched
+        mv kernel-patched kernel
+        magiskboot repack ../boot.img
+        mv new-boot.img ../boot-patched.img
+    )
+else
+    cat "$PATCH_ERR" >&2
+    rm -f "$PATCH_ERR"
     exit 1
 fi
-echo "[+] Found kernel zip: $KERNEL_ZIP"
 
-# 从中提取 zImage 文件，并重命名为 kernel
-echo "[*] Extracting zImage from kernel zip..."
-if ! unzip -j -q "$KERNEL_ZIP" "zImage" -d tmp 2>/dev/null; then
-    if ! unzip -j -q "$KERNEL_ZIP" "*zImage" -d tmp 2>/dev/null; then
-        echo "[-] Error: Failed to extract zImage from $KERNEL_ZIP" >&2
-        exit 1
-    fi
-fi
-mv tmp/zImage tmp/kernel
-
-# 使用 magiskboot repack 重新打包，重新打包的文件名会是 new-boot.img
-echo "[*] Repacking boot.img..."
-(
-    cd tmp
-    magiskboot repack boot.img
-)
-
-# 将 patch 后的 init_boot-patched.img 和 new-boot.img 重命名为 init_boot.img 和 boot.img 然后一起打包为 ksu.tar ,放到工作目录去
+# 将 patch 后的 init_boot-patched.img 和 boot-patched.img 重命名为 init_boot.img 和 boot.img 然后一起打包为 ksu.tar，放到工作目录去
 echo "[*] Packaging ksu.tar into working directory..."
 mv tmp/init_boot-patched.img tmp/init_boot.img
-mv tmp/new-boot.img tmp/boot.img
+mv tmp/boot-patched.img tmp/boot.img
 (
     cd tmp
     tar -cf "$WORK_DIR/ksu.tar" init_boot.img boot.img
