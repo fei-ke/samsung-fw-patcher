@@ -1,6 +1,9 @@
 # Samsung Firmware Patcher
 
-本项目用于自动化对三星官方固件进行补丁和打包，主要包含禁用 `vbmeta` 校验、替换 `abl` 文件、在 `init_boot` 中注入 KernelSU，以及使用 [samsung-lkm-boot-patcher](https://github.com/fei-ke/samsung-lkm-boot-patcher) 修补原厂 `boot.img`（关闭 UH / RKP / KDP 保护，使原厂内核支持 KernelSU LKM 模式）。
+本项目用于自动化对三星官方固件（SM-S9380）进行补丁和打包，主要包含禁用 `vbmeta` 校验、替换 `abl` 文件、在 `init_boot` 中注入 KernelSU，以及使用 [samsung-lkm-boot-patcher](https://github.com/fei-ke/samsung-lkm-boot-patcher) 修补原厂 `boot.img`（关闭 UH / RKP / KDP 保护，使原厂内核支持 KernelSU LKM 模式）。
+
+> [!IMPORTANT]
+> 本项目**仅适配 Samsung Galaxy S25 Ultra**，且仅在 **`SM-S9380`** 机型上测试通过。其他机型请自行斟酌
 
 ## 准备文件
 
